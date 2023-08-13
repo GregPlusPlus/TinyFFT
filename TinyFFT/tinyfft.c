@@ -1,12 +1,36 @@
 #include "tinyfft.h"
 
-void tinyfft_zeroOutput(float complex *y, size_t n) {
+size_t reverseIndex(size_t a, size_t max) {
+    size_t ar = 0;
+    size_t nBits = (sizeof(size_t) * 8);
+    size_t minimumSize = 0;
+
+    for(size_t i = 0; i < nBits; i ++) {
+        size_t mask = (size_t)1 << (nBits - 1 - i);
+
+        if(((max & mask) != 0) &&
+           (minimumSize == 0)) {
+
+            minimumSize = (nBits - i);
+
+            break;
+        }
+    }
+
+    for(size_t i = 0; i < minimumSize; i ++) {
+        ar |= (((a & ((size_t)1 << i)) >> i) << (minimumSize - 1 - i));
+    }
+
+    return ar;
+}
+
+void tinyfft_reorder(const float complex *s, float complex *sr, size_t n) {
     for(size_t i = 0; i < n; i ++) {
-        y[i] = 0;
+        sr[reverseIndex(i, n - 1)] = s[i];
     }
 }
 
-void tinyfft_FFT(const float *s, float complex *y, size_t n) {
+void tinyfft_FFT(float complex *s, float complex *y, size_t n) {
     if(n == 1) {
         y[0] = s[0];
 
@@ -15,29 +39,15 @@ void tinyfft_FFT(const float *s, float complex *y, size_t n) {
 
     float complex omega = cexpf((2 * M_PI * I) / n);
 
-    float *se = malloc(sizeof(float) * (n / 2));
-    float *so = malloc(sizeof(float) * (n / 2));
-    float complex *ye = malloc(sizeof(float complex) * (n / 2));
-    float complex *yo = malloc(sizeof(float complex) * (n / 2));
+    float complex *yeo = malloc(sizeof(float complex) * n);
+
+    tinyfft_FFT(s           , yeo           , (n / 2));     // Even part
+    tinyfft_FFT(s + (n / 2) , yeo + (n / 2) , (n / 2));     // Odd part
 
     for(size_t i = 0; i < (n / 2); i ++) {
-        se[i] = s[(i * 2) + 0];
-        so[i] = s[(i * 2) + 1];
+        y[i          ] = yeo[i] + (cpowf(omega, i) * yeo[i + (n / 2)]);
+        y[i + (n / 2)] = yeo[i] - (cpowf(omega, i) * yeo[i + (n / 2)]);
     }
 
-    tinyfft_zeroOutput(ye, (n / 2));
-    tinyfft_zeroOutput(yo, (n / 2));
-
-    tinyfft_FFT(se, ye, (n / 2));
-    tinyfft_FFT(so, yo, (n / 2));
-
-    for(size_t i = 0; i < (n / 2); i ++) {
-        y[i          ] = ye[i] + (cpowf(omega, i) * yo[i]);
-        y[i + (n / 2)] = ye[i] - (cpowf(omega, i) * yo[i]);
-    }
-
-    free(se);
-    free(so);
-    free(ye);
-    free(yo);
+    free(yeo);
 }

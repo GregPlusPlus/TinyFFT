@@ -5,12 +5,13 @@
 #define N_SAMPLES 4
 
 int main() {
-    float         s[N_SAMPLES] = {5, 3, 2, 1};
+    float complex s[N_SAMPLES] = {5, 3, 2, 1};
+    float complex b[N_SAMPLES];
     float complex y[N_SAMPLES];
 
-    tinyfft_zeroOutput(y, N_SAMPLES);
+    tinyfft_reorder(s, b, N_SAMPLES);
 
-    tinyfft_FFT(s, y, N_SAMPLES);
+    tinyfft_FFT(b, y, N_SAMPLES);
 
     printf("FFT([");
 
